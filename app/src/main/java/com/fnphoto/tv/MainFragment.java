@@ -12,7 +12,14 @@ import androidx.leanback.widget.*;
 import com.fnphoto.tv.api.FnAuthUtils;
 import com.fnphoto.tv.api.FnHttpApi;
 import com.fnphoto.tv.api.HttpClientProvider;
+import com.google.gson.Gson;
 
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -103,6 +110,8 @@ public class MainFragment extends BrowseSupportFragment {
                         openFolderBrowse(mediaItem);
                     } else if ("album".equals(mediaItem.getType())) {
                         loadPhotosByAlbum(mediaItem.getId(), mediaItem.getTitle());
+                    } else if ("place".equals(mediaItem.getType())) {
+                        loadPhotosByGeo(mediaItem);
                     } else if ("video".equals(mediaItem.getType()) || "photo".equals(mediaItem.getType())) {
                         openMediaDetail(mediaItem);
                     }
@@ -195,6 +204,9 @@ public class MainFragment extends BrowseSupportFragment {
             } else if (savedAlbumList != null) {
                 Log.d(TAG, "Returning to album list");
                 displayAlbums(savedAlbumList);
+            } else if (savedPlacesList != null) {
+                Log.d(TAG, "Returning to places list");
+                displayPlaces(savedPlacesList);
             } else {
                 return false;
             }
@@ -637,7 +649,7 @@ public class MainFragment extends BrowseSupportFragment {
                 
                 thumbUrl = thumbnail.mUrl != null ? baseUrl + thumbnail.mUrl : (thumbnail.sUrl != null ? baseUrl + thumbnail.sUrl : null);
                 
-                originalUrl = thumbnail.mUrl != null ? baseUrl + thumbnail.mUrl : null;
+                originalUrl = thumbnail.originalUrl != null ? baseUrl + thumbnail.originalUrl : (thumbnail.mUrl != null ? baseUrl + thumbnail.mUrl : null);
             }
 
             MediaItem item = new MediaItem(
@@ -762,6 +774,7 @@ public class MainFragment extends BrowseSupportFragment {
         isPhotoListView = false;
         timelineItems = null;
         savedAlbumList = null;
+        savedPlacesList = new ArrayList<>(places);
         mRowsAdapter.clear();
 
         int itemsPerRow = 6;
@@ -809,7 +822,7 @@ public class MainFragment extends BrowseSupportFragment {
                 if (photo.additional != null && photo.additional.thumbnail != null) {
                 FnHttpApi.GalleryThumbnail thumbnail = photo.additional.thumbnail;
                 thumbUrl = thumbnail.mUrl != null ? baseUrl + thumbnail.mUrl : (thumbnail.sUrl != null ? baseUrl + thumbnail.sUrl : null);
-                originalUrl = thumbnail.mUrl != null ? baseUrl + thumbnail.mUrl : null;
+                originalUrl = thumbnail.originalUrl != null ? baseUrl + thumbnail.originalUrl : (thumbnail.mUrl != null ? baseUrl + thumbnail.mUrl : null);
             }
 
             MediaItem item = new MediaItem(
@@ -837,6 +850,7 @@ public class MainFragment extends BrowseSupportFragment {
     }
 
     private List<FnHttpApi.NewAlbum> savedAlbumList;
+    private List<FnHttpApi.GeoItem> savedPlacesList;
 
     private void loadAlbumPhotosPage(final String albumName, final int albumId,
                                      final int offset, final List<FnHttpApi.GalleryPhoto> allPhotos) {
@@ -897,6 +911,120 @@ public class MainFragment extends BrowseSupportFragment {
             int end = Math.min(start + itemsPerRow, photos.size());
 
             HeaderItem header = row == 0 ? new HeaderItem("相册: " + albumName + " (" + photos.size() + "张)") : null;
+            ArrayObjectAdapter rowAdapter = new ArrayObjectAdapter(mCardPresenter);
+
+            for (int i = start; i < end; i++) {
+                FnHttpApi.GalleryPhoto photo = photos.get(i);
+
+                String thumbUrl = null;
+                String mediaUrl = null;
+
+                if (photo.additional != null && photo.additional.thumbnail != null) {
+                    FnHttpApi.GalleryThumbnail thumbnail = photo.additional.thumbnail;
+                    thumbUrl = thumbnail.mUrl != null ? baseUrl + thumbnail.mUrl : (thumbnail.sUrl != null ? baseUrl + thumbnail.sUrl : null);
+                    mediaUrl = thumbnail.originalUrl != null ? baseUrl + thumbnail.originalUrl : null;
+                }
+
+                MediaItem item = new MediaItem(
+                    String.valueOf(photo.id),
+                    photo.fileName,
+                    photo.category,
+                    thumbUrl,
+                    mediaUrl
+                );
+                currentMediaList.add(item);
+                rowAdapter.add(item);
+            }
+
+            mRowsAdapter.add(new ListRow(header, rowAdapter));
+        }
+    }
+
+    public void loadPhotosByGeo(MediaItem placeItem) {
+        if (token == null || token.isEmpty()) {
+            Log.e(TAG, "API未初始化");
+            return;
+        }
+
+        String[] parts = placeItem.getId().split("/", 2);
+        final String country = parts.length > 0 ? parts[0] : "";
+        final String city = parts.length > 1 ? parts[1] : "";
+        final String placeName = placeItem.getTitle();
+
+        final String requestBody = "{\"keyword\":\"\",\"filters\":[{\"filterName\":\"photo_location\",\"filterValue\":\"" + country + "\",\"subFilters\":[{\"filterName\":\"" + country + "\",\"filterValue\":\"" + city + "\"}]}],\"antiFilters\":[]}";
+        String authx = FnAuthUtils.generateAuthX("/p/api/v1/search/results", "POST", requestBody);
+        final String url = baseUrl + "/p/api/v1/search/results";
+
+        Log.d(TAG, "=== 地点照片请求(OkHttp) ===");
+        Log.d(TAG, "URL: " + url);
+        Log.d(TAG, "Method: POST");
+        Log.d(TAG, "Body: " + requestBody);
+        Log.d(TAG, "authx: " + authx);
+
+        MediaType JSON = MediaType.parse("application/json; charset=UTF-8");
+        RequestBody body = RequestBody.create(JSON, requestBody);
+
+        Request request = new Request.Builder()
+            .url(url)
+            .post(body)
+            .header("accesstoken", token)
+            .header("authx", authx)
+            .build();
+
+        OkHttpClient client = HttpClientProvider.getClient(getActivity());
+        client.newCall(request).enqueue(new okhttp3.Callback() {
+            @Override
+            public void onFailure(okhttp3.Call call, IOException e) {
+                Log.e(TAG, "地点照片请求网络异常", e);
+                getActivity().runOnUiThread(() -> showEmptyState("网络异常: " + e.getMessage()));
+            }
+
+            @Override
+            public void onResponse(okhttp3.Call call, okhttp3.Response response) throws IOException {
+                try {
+                    String responseBody = response.body() != null ? response.body().string() : null;
+                    Log.d(TAG, "Response code: " + response.code());
+                    Log.d(TAG, "Response body: " + responseBody);
+
+                    if (response.isSuccessful() && responseBody != null) {
+                        Gson gson = new Gson();
+                        FnHttpApi.SearchResultsResponse result = gson.fromJson(responseBody, FnHttpApi.SearchResultsResponse.class);
+                        if (result.code == 0 && result.data != null && result.data.list != null) {
+                            final List<FnHttpApi.GalleryPhoto> photos = result.data.list;
+                            getActivity().runOnUiThread(() -> displayGeoPhotos(placeName, photos));
+                        } else {
+                            Log.e(TAG, "地点照片返回异常: code=" + result.code);
+                            getActivity().runOnUiThread(() -> showEmptyState("暂无照片"));
+                        }
+                    } else {
+                        Log.e(TAG, "地点照片请求失败: code=" + response.code() + " body=" + responseBody);
+                        getActivity().runOnUiThread(() -> showEmptyState("请求失败(" + response.code() + ")"));
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "解析响应异常", e);
+                    getActivity().runOnUiThread(() -> showEmptyState("解析失败"));
+                } finally {
+                    response.close();
+                }
+            }
+        });
+    }
+
+    private void displayGeoPhotos(String placeName, List<FnHttpApi.GalleryPhoto> photos) {
+        isPhotoListView = true;
+        timelineItems = null;
+        mRowsAdapter.clear();
+
+        currentMediaList = new ArrayList<>();
+
+        int itemsPerRow = 6;
+        int totalRows = (int) Math.ceil((double) photos.size() / itemsPerRow);
+
+        for (int row = 0; row < totalRows; row++) {
+            int start = row * itemsPerRow;
+            int end = Math.min(start + itemsPerRow, photos.size());
+
+            HeaderItem header = row == 0 ? new HeaderItem("地点: " + placeName + " (" + photos.size() + "张)") : null;
             ArrayObjectAdapter rowAdapter = new ArrayObjectAdapter(mCardPresenter);
 
             for (int i = start; i < end; i++) {
