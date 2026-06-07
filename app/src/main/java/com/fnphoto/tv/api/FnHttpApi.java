@@ -671,7 +671,7 @@ public interface FnHttpApi {
 
     class GalleryPhotoAdditional {
         public GalleryThumbnail thumbnail;
-        public List<String> tags;
+        public List<Object> tags;
     }
 
     class GalleryThumbnail {

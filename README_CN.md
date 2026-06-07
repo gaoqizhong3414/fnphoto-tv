@@ -4,12 +4,14 @@ Android TV 端飞牛 NAS (fnOS) 相册浏览应用，支持浏览照片和视频
 
 ## 功能特点
 
+- **FN Connect 支持**：通过 FN ID（云端）、局域网 IP 或域名登录，自动发现可达的 NAS
 - **时间线视图**：按日期组织的时间线形式浏览照片
 - **文件夹视图**：浏览受管理的文件夹
 - **相册视图**：浏览用户创建的相册
 - **媒体播放**：查看照片和播放视频，支持全屏显示
 - **无缝导航**：使用电视遥控器左右键切换照片
 - **全屏体验**：无系统 UI 干扰的沉浸式查看
+- **TLS 1.2 支持**：针对 API 19 设备内置 Conscrypt + Mozilla CA 证书包，确保 HTTPS 安全连接
 
 ## 系统要求
 
@@ -19,7 +21,7 @@ Android TV 端飞牛 NAS (fnOS) 相册浏览应用，支持浏览照片和视频
 
 ## 当前限制
 
-- **仅支持局域网**：目前仅支持通过局域网 IP 地址登录，**不支持** FN Connect（通过 FNOSP 云服务远程访问）。
+- **仅支持 FN Connect 登录**：云端 API 需要 TLS 1.2+。API 19（Android 4.4）设备已内置 Conscrypt 以提供现代 TLS 支持。
 
 ## 安装步骤
 
@@ -51,7 +53,7 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 
 ## 使用说明
 
-1. **首次启动**：输入 NAS 地址（局域网 IP）、用户名和密码
+1. **首次启动**：输入 FN ID、局域网 IP 或域名，然后输入用户名和密码
 2. **时间线导航**：按年、月分组浏览照片
 3. **侧边菜单**：按遥控器 MENU 键访问文件夹、相册和设置
 4. **查看照片**：点击日期查看当天的所有照片
@@ -68,6 +70,8 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 - **CardPresenter**：自定义 Presenter 用于照片缩略图展示
 - **FnAuthUtils**：认证和请求签名工具类
 - **FnHttpApi**：基于 Retrofit 的 NAS API 通信接口
+- **FnConnectApi**：FN Connect 云端 API 客户端 — FN ID 查询、authx 签名、基于优先级并行延迟的 TCP 探测
+- **TlsUtils**：Conscrypt SSL 提供者 + 内置 Mozilla CA 证书包，为 API 19 提供 TLS 1.2 支持
 - **FnWebSocketClient / FnWebSocketManager**：基于 WebSocket 的登录流程
 - **ApiInterceptor / Reauthenticator**：OkHttp 拦截器，自动注入认证头和刷新令牌
 
@@ -119,7 +123,7 @@ MIT 协议 — 详见 LICENSE 文件
 
 ## 常见问题
 
-- **连接失败**：确保电视和 NAS 在同一局域网内
+- **连接失败**：确保电视和 NAS 在同一局域网，或 FN Connect 可访问
 - **认证失败**：检查用户名和密码是否正确
 - **照片无法加载**：确认电视能够访问照片流地址
-- **FN Connect 无法使用**：当前仅支持局域网登录，暂不支持 FN Connect 远程访问
+- **API 19 TLS 错误**：已内置 Conscrypt；若证书有问题，从 https://curl.se/ca/cacert.pem 更新 `res/raw/cacert.pem`
