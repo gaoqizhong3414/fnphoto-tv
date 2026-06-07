@@ -260,6 +260,18 @@ public interface FnHttpApi {
         @Path("id") int photoId
     );
 
+    /**
+     * 获取地点列表
+     * GET /p/api/v1/explore/geos?offset=0&limit=-1
+     */
+    @GET("/p/api/v1/explore/geos")
+    Call<GeoListResponse> getGeos(
+        @Header("accesstoken") String accesstoken,
+        @Header("authx") String authx,
+        @Query("offset") int offset,
+        @Query("limit") int limit
+    );
+
     // ==================== 时间线和智能相册接口 ====================
     
     /**
@@ -699,6 +711,27 @@ public interface FnHttpApi {
         public int isCanPreview;
         public String photoUUID;
         public GalleryPhotoAdditional additional;
+    }
+
+    // ==================== 地点相关 ====================
+
+    class GeoListResponse {
+        public int code;
+        public String msg;
+        public GeoListData data;
+    }
+
+    class GeoListData {
+        public Integer count;
+        public Boolean hasNext;
+        public List<GeoItem> list;
+    }
+
+    class GeoItem {
+        public String country;
+        public String city;
+        public int itemCount;
+        public String posterUrl;
     }
 
 }

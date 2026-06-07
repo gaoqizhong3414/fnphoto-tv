@@ -22,6 +22,7 @@ import androidx.leanback.widget.VerticalGridView;
 import androidx.recyclerview.widget.RecyclerView;
 import com.fnphoto.tv.api.FnAuthUtils;
 import com.fnphoto.tv.api.FnHttpApi;
+import com.fnphoto.tv.api.HttpClientProvider;
 import java.util.ArrayList;
 import java.util.List;
 import retrofit2.*;
@@ -212,6 +213,9 @@ public class MainActivity extends FragmentActivity {
             case "recent":
                 loadRecent();
                 break;
+            case "places":
+                loadPlaces();
+                break;
             case "search":
                 openSearch();
                 return;
@@ -222,7 +226,6 @@ public class MainActivity extends FragmentActivity {
                 logout();
                 return;
             case "map":
-            case "places":
             case "people":
             case "tags":
             case "smart":
@@ -322,6 +325,7 @@ public class MainActivity extends FragmentActivity {
         Retrofit retrofit = new Retrofit.Builder()
                 .baseUrl(baseUrl + "/")
                 .addConverterFactory(GsonConverterFactory.create())
+                .client(HttpClientProvider.getClient(this))
                 .build();
         api = retrofit.create(FnHttpApi.class);
 
@@ -436,6 +440,14 @@ public class MainActivity extends FragmentActivity {
                 .findFragmentById(R.id.main_content_container);
         if (fragment != null) {
             fragment.loadRecent();
+        }
+    }
+
+    private void loadPlaces() {
+        MainFragment fragment = (MainFragment) getSupportFragmentManager()
+                .findFragmentById(R.id.main_content_container);
+        if (fragment != null) {
+            fragment.loadPlaces();
         }
     }
 }

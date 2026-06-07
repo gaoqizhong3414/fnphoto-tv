@@ -11,6 +11,7 @@ import androidx.leanback.widget.*;
 
 import com.fnphoto.tv.api.FnAuthUtils;
 import com.fnphoto.tv.api.FnHttpApi;
+import com.fnphoto.tv.api.HttpClientProvider;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -69,6 +70,7 @@ public class MainFragment extends BrowseSupportFragment {
             Retrofit retrofit = new Retrofit.Builder()
                     .baseUrl(baseUrl + "/")
                     .addConverterFactory(GsonConverterFactory.create())
+                    .client(HttpClientProvider.getClient(getActivity()))
                     .build();
             api = retrofit.create(FnHttpApi.class);
         }
@@ -723,6 +725,71 @@ public class MainFragment extends BrowseSupportFragment {
                 showEmptyState("加载失败");
             }
         });
+    }
+
+    public void loadPlaces() {
+        if (api == null || token == null || token.isEmpty()) {
+            Log.e(TAG, "API未初始化");
+            return;
+        }
+
+        String params = "offset=0&limit=-1";
+        String authx = FnAuthUtils.generateAuthX("/p/api/v1/explore/geos", "GET", params);
+
+        api.getGeos(token, authx, 0, -1).enqueue(new Callback<FnHttpApi.GeoListResponse>() {
+            @Override
+            public void onResponse(Call<FnHttpApi.GeoListResponse> call,
+                                   Response<FnHttpApi.GeoListResponse> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    FnHttpApi.GeoListResponse result = response.body();
+                    if (result.code == 0 && result.data != null && result.data.list != null) {
+                        displayPlaces(result.data.list);
+                    } else {
+                        showEmptyState("暂无地点");
+                    }
+                }
+            }
+
+            @Override
+            public void onFailure(Call<FnHttpApi.GeoListResponse> call, Throwable t) {
+                Log.e(TAG, "加载地点失败", t);
+                showEmptyState("加载失败");
+            }
+        });
+    }
+
+    private void displayPlaces(List<FnHttpApi.GeoItem> places) {
+        isPhotoListView = false;
+        timelineItems = null;
+        savedAlbumList = null;
+        mRowsAdapter.clear();
+
+        int itemsPerRow = 6;
+        int totalRows = (int) Math.ceil((double) places.size() / itemsPerRow);
+
+        for (int row = 0; row < totalRows; row++) {
+            int start = row * itemsPerRow;
+            int end = Math.min(start + itemsPerRow, places.size());
+
+            HeaderItem header = row == 0 ? new HeaderItem("地点 (" + places.size() + ")") : null;
+            ArrayObjectAdapter rowAdapter = new ArrayObjectAdapter(mCardPresenter);
+
+            for (int i = start; i < end; i++) {
+                FnHttpApi.GeoItem geo = places.get(i);
+                String posterUrl = geo.posterUrl != null ? baseUrl + geo.posterUrl : null;
+                MediaItem item = new MediaItem(
+                    geo.country + "/" + geo.city,
+                    geo.city + "，" + geo.country,
+                    "place",
+                    posterUrl,
+                    posterUrl
+                );
+                item.setDateStr(geo.itemCount + "张照片");
+                rowAdapter.add(item);
+            }
+
+            mRowsAdapter.add(new ListRow(header, rowAdapter));
+        }
     }
 
     private void displayPhotoList(String title, List<FnHttpApi.GalleryPhoto> photos) {

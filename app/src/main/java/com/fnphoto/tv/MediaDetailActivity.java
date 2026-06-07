@@ -29,6 +29,7 @@ import androidx.fragment.app.FragmentActivity;
 
 import com.fnphoto.tv.api.FnAuthUtils;
 import com.fnphoto.tv.api.FnHttpApi;
+import com.fnphoto.tv.api.HttpClientProvider;
 import com.fnphoto.tv.cache.CachedImageLoader;
 import com.fnphoto.tv.player.AuthenticatedHttpDataSourceFactory;
 import com.google.android.exoplayer2.Player;
@@ -111,6 +112,7 @@ public class MediaDetailActivity extends FragmentActivity {
             Retrofit retrofit = new Retrofit.Builder()
                     .baseUrl(baseUrl + "/")
                     .addConverterFactory(retrofit2.converter.gson.GsonConverterFactory.create())
+                    .client(HttpClientProvider.getClient(this))
                     .build();
             api = retrofit.create(FnHttpApi.class);
         }

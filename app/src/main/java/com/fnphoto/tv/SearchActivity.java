@@ -27,6 +27,7 @@ import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.fnphoto.tv.api.FnAuthUtils;
+import com.fnphoto.tv.api.HttpClientProvider;
 import com.fnphoto.tv.api.FnHttpApi;
 import com.fnphoto.tv.cache.CachedImageLoader;
 
@@ -78,6 +79,7 @@ public class SearchActivity extends FragmentActivity {
         Retrofit retrofit = new Retrofit.Builder()
                 .baseUrl(baseUrl + "/")
                 .addConverterFactory(GsonConverterFactory.create())
+                .client(HttpClientProvider.getClient(this))
                 .build();
         api = retrofit.create(FnHttpApi.class);
 
