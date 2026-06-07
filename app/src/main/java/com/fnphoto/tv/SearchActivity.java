@@ -287,7 +287,7 @@ public class SearchActivity extends FragmentActivity {
             if ("video".equals(photo.category)) {
                 mediaUrl = baseUrl + "/p/api/v1/stream/v/" + photo.id;
             } else {
-                mediaUrl = thumb.mUrl != null ? baseUrl + thumb.mUrl : null;
+                mediaUrl = thumb.originalUrl != null ? baseUrl + thumb.originalUrl : (thumb.mUrl != null ? baseUrl + thumb.mUrl : null);
             }
         }
 

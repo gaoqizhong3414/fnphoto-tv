@@ -20,6 +20,7 @@ import android.view.animation.DecelerateInterpolator;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ProgressBar;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -64,7 +65,7 @@ public class MediaDetailActivity extends FragmentActivity {
     private View infoOverlay;
     private TextView tvInfoContent;
     private TextView tvSlideshowIndicator;
-    private View loadingIndicator;
+    private ProgressBar loadingIndicator;
 
     private List<MediaItem> mediaList;
     private int currentIndex;
@@ -133,6 +134,7 @@ public class MediaDetailActivity extends FragmentActivity {
 
         container.removeAllViews();
         hideInfoOverlay();
+        showLoading();
 
         if (player != null) {
             player.release();
@@ -143,6 +145,29 @@ public class MediaDetailActivity extends FragmentActivity {
             showVideoPreview(item);
         } else {
             showPhoto(item);
+        }
+    }
+
+    private void showLoading() {
+        if (loadingIndicator == null) {
+            loadingIndicator = new ProgressBar(this, null, android.R.attr.progressBarStyleLarge);
+            loadingIndicator.setIndeterminate(true);
+            FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT);
+            params.gravity = Gravity.CENTER;
+            loadingIndicator.setLayoutParams(params);
+        }
+        if (loadingIndicator.getParent() == null) {
+            container.addView(loadingIndicator);
+        }
+        loadingIndicator.setVisibility(View.VISIBLE);
+        loadingIndicator.bringToFront();
+    }
+
+    private void hideLoading() {
+        if (loadingIndicator != null) {
+            loadingIndicator.setVisibility(View.GONE);
         }
     }
 
@@ -163,11 +188,13 @@ public class MediaDetailActivity extends FragmentActivity {
                     new CachedImageLoader.ImageLoadCallback() {
                         @Override
                         public void onBitmapLoaded(Bitmap bitmap) {
+                            hideLoading();
                             imageView.setImageBitmap(bitmap);
                         }
 
                         @Override
                         public void onLoadFailed() {
+                            hideLoading();
                             Toast.makeText(MediaDetailActivity.this, "图片加载失败", Toast.LENGTH_SHORT).show();
                         }
                     });
@@ -199,12 +226,14 @@ public class MediaDetailActivity extends FragmentActivity {
                 new CachedImageLoader.ImageLoadCallback() {
                     @Override
                     public void onBitmapLoaded(Bitmap bitmap) {
+                        hideLoading();
                         Bitmap composite = createVideoPreviewWithPlayButton(bitmap, screenWidth, screenHeight);
                         imageView.setImageBitmap(composite);
                     }
 
                     @Override
                     public void onLoadFailed() {
+                        hideLoading();
                         startVideoPlayback(item);
                     }
                 });

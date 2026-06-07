@@ -11,7 +11,7 @@ public class HttpClientProvider {
 
     public static OkHttpClient getClient(Context context) {
         if (client == null) {
-            client = new OkHttpClient.Builder()
+            client = TlsUtils.enableTlsOnApi19(new OkHttpClient.Builder())
                 .connectTimeout(15, TimeUnit.SECONDS)
                 .readTimeout(30, TimeUnit.SECONDS)
                 .writeTimeout(30, TimeUnit.SECONDS)

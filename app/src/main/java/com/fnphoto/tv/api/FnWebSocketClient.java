@@ -14,7 +14,7 @@ public class FnWebSocketClient {
     public FnWebSocketClient() {
         // 延迟初始化 OkHttpClient，捕获可能的异常
         try {
-            this.client = new OkHttpClient();
+            this.client = TlsUtils.enableTlsOnApi19(new OkHttpClient.Builder()).build();
             android.util.Log.d("FnWebSocket", "OkHttpClient initialized successfully");
         } catch (Exception e) {
             android.util.Log.e("FnWebSocket", "Failed to initialize OkHttpClient: " + e.getMessage(), e);
@@ -72,7 +72,7 @@ public class FnWebSocketClient {
 
             @Override
             public void onMessage(WebSocket webSocket, String text) {
-                android.util.Log.d("FnWebSocket", "Received: " + text);
+                // android.util.Log.d("FnWebSocket", "Received: " + text);
                 try {
                     JSONObject json = new JSONObject(text);
                     

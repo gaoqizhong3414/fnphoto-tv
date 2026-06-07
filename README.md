@@ -4,12 +4,14 @@ An Android TV application for browsing photos and videos from Feiniu NAS (fnOS) 
 
 ## Features
 
+- **FN Connect Support**: Login via FN ID (cloud), local IP, or domain — auto-discovers reachable NAS
 - **Timeline View**: Browse photos organized by date in a timeline format
 - **Folder View**: Navigate through managed folders
 - **Album View**: Browse user-created albums
 - **Media Playback**: View photos and play videos with full-screen support
 - **Seamless Navigation**: Use TV remote to navigate between photos with left/right keys
 - **Fullscreen Experience**: Distraction-free viewing without system UI
+- **TLS 1.2 on API 19**: Bundled Conscrypt + Mozilla CA bundle for secure HTTPS on older devices
 
 ## Requirements
 
@@ -19,7 +21,7 @@ An Android TV application for browsing photos and videos from Feiniu NAS (fnOS) 
 
 ## Limitations
 
-- **Local Network Only**: Currently only supports login via local network IP address. FN Connect (remote access via FNOSP cloud) is **not supported** at this time.
+- **FN Connect Only**: The cloud API requires TLS 1.2+. On API 19 (Android 4.4), Conscrypt is bundled to provide modern TLS support.
 
 ## Installation
 
@@ -51,7 +53,7 @@ See [API.md](API.md) for detailed authentication documentation.
 
 ## Usage
 
-1. **First Launch**: Enter your NAS URL (local IP), username, and password
+1. **First Launch**: Enter FN ID, local IP, or domain, then your username and password
 2. **Timeline Navigation**: Browse photos by date, grouped by year and month
 3. **Side Menu**: Press MENU key to access folders, albums, and settings
 4. **Photo Viewing**: Click a date to view all photos from that day
@@ -68,6 +70,8 @@ See [API.md](API.md) for detailed authentication documentation.
 - **CardPresenter**: Custom presenter for photo thumbnails
 - **FnAuthUtils**: Authentication and request signing utilities
 - **FnHttpApi**: Retrofit interface for NAS API communication
+- **FnConnectApi**: FN Connect cloud API client — FN ID lookup, authx signing, TCP probing with priority-based parallel delays
+- **TlsUtils**: Conscrypt SSL provider + bundled Mozilla CA bundle for TLS 1.2 on API 19
 - **FnWebSocketClient / FnWebSocketManager**: WebSocket-based login flow
 - **ApiInterceptor / Reauthenticator**: OkHttp interceptor for automatic auth header injection and token refresh
 
@@ -119,7 +123,7 @@ Pull requests are welcome. For major changes, please open an issue first to disc
 
 ## Troubleshooting
 
-- **Connection Issues**: Ensure your TV and NAS are on the same network
+- **Connection Issues**: Ensure your TV and NAS are on the same network, or that FN Connect is reachable
 - **Authentication Failed**: Check your username and password
 - **Photos Not Loading**: Verify the photo stream URL is accessible from your TV
-- **FN Connect Not Working**: Only local network (LAN) login is supported; FN Connect cloud access is not yet available
+- **TLS Errors on API 19**: Conscrypt provider is bundled; if CA issues occur, update `res/raw/cacert.pem` from https://curl.se/ca/cacert.pem

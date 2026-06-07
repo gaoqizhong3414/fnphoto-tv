@@ -72,4 +72,7 @@ dependencies {
     
     // DrawerLayout
     implementation 'androidx.drawerlayout:drawerlayout:1.1.1'
+
+    // Conscrypt - 现代 TLS 支持 (为 API 19 替换系统 SSL)
+    implementation 'org.conscrypt:conscrypt-android:2.5.2'
 }

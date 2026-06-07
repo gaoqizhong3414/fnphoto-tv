@@ -272,6 +272,19 @@ public interface FnHttpApi {
         @Query("limit") int limit
     );
 
+    /**
+     * 获取地点下的照片
+     * POST /p/api/v1/search/results
+     * 通过 search/results 接口按地理位置筛选
+     */
+    @POST("/p/api/v1/search/results")
+    @Headers("Content-Type: application/json; charset=UTF-8")
+    Call<SearchResultsResponse> searchGeoPhotos(
+        @Header("accesstoken") String accesstoken,
+        @Header("authx") String authx,
+        @Body okhttp3.RequestBody body
+    );
+
     // ==================== 时间线和智能相册接口 ====================
     
     /**
@@ -658,7 +671,7 @@ public interface FnHttpApi {
 
     class GalleryPhotoAdditional {
         public GalleryThumbnail thumbnail;
-        public List<String> tags;
+        public List<Object> tags;
     }
 
     class GalleryThumbnail {
@@ -732,6 +745,53 @@ public interface FnHttpApi {
         public String city;
         public int itemCount;
         public String posterUrl;
+    }
+
+    // ==================== 搜索/筛选请求模型 ====================
+
+    class GeoSearchRequest {
+        public String keyword = "";
+        public List<GeoFilter> filters;
+        public List<String> antiFilters = new java.util.ArrayList<>();
+
+        public GeoSearchRequest(String country, String city) {
+            GeoFilter filter = new GeoFilter();
+            filter.filterName = "photo_location";
+            filter.filterValue = country;
+
+            GeoSubFilter subFilter = new GeoSubFilter();
+            subFilter.filterName = country;
+            subFilter.filterValue = city;
+            filter.subFilters = new java.util.ArrayList<>();
+            filter.subFilters.add(subFilter);
+
+            this.filters = new java.util.ArrayList<>();
+            this.filters.add(filter);
+        }
+    }
+
+    class GeoFilter {
+        public String filterName;
+        public String filterValue;
+        public List<GeoSubFilter> subFilters;
+    }
+
+    class GeoSubFilter {
+        public String filterName;
+        public String filterValue;
+    }
+
+    class SearchResultsResponse {
+        public int code;
+        public String msg;
+        public SearchResultsData data;
+    }
+
+    class SearchResultsData {
+        public List<GalleryPhoto> list;
+        public Integer count;
+        public Boolean hasNext;
+        public Integer total;
     }
 
 }
