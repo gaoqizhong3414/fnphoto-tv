@@ -15,7 +15,11 @@ An Android TV application for browsing photos and videos from Feiniu NAS (fnOS) 
 
 - Android TV or Android device with API level 19+ (Android 4.4)
 - Feiniu NAS (fnOS) running photo gallery service
-- Network access to your NAS
+- Network access to your NAS (same LAN)
+
+## Limitations
+
+- **Local Network Only**: Currently only supports login via local network IP address. FN Connect (remote access via FNOSP cloud) is **not supported** at this time.
 
 ## Installation
 
@@ -47,7 +51,7 @@ See [API.md](API.md) for detailed authentication documentation.
 
 ## Usage
 
-1. **First Launch**: Enter your NAS URL, username, and API token
+1. **First Launch**: Enter your NAS URL (local IP), username, and password
 2. **Timeline Navigation**: Browse photos by date, grouped by year and month
 3. **Side Menu**: Press MENU key to access folders, albums, and settings
 4. **Photo Viewing**: Click a date to view all photos from that day
@@ -57,22 +61,25 @@ See [API.md](API.md) for detailed authentication documentation.
 
 ## Architecture
 
+- **LoginActivity**: Login screen as the launcher activity
 - **MainActivity**: Main entry point with side drawer navigation
 - **MainFragment**: BrowseFragment for displaying photo grids
-- **MediaDetailActivity**: Unified viewer for photos and videos with navigation
+- **PhotoDetailActivity / MediaDetailActivity**: Full-screen photo/video viewer with ExoPlayer
 - **CardPresenter**: Custom presenter for photo thumbnails
 - **FnAuthUtils**: Authentication and request signing utilities
 - **FnHttpApi**: Retrofit interface for NAS API communication
+- **FnWebSocketClient / FnWebSocketManager**: WebSocket-based login flow
+- **ApiInterceptor / Reauthenticator**: OkHttp interceptor for automatic auth header injection and token refresh
 
 ## API Integration
 
 The app communicates with Feiniu NAS photo gallery API endpoints:
 
-- `/p/api/v1/gallery/timeline` - Get timeline data
-- `/p/api/v1/gallery/getList` - Get photos by date range
-- `/p/api/v1/photo/folder/view` - Get managed folders
-- `/api/v1/photos/albums` - Get albums
-- `/p/api/v1/stream/p/t/{id}` - Stream photos/videos
+- `/p/api/v1/gallery/timeline` — Get timeline data
+- `/p/api/v1/gallery/getList` — Get photos by date range
+- `/p/api/v1/photo/folder/view` — Get managed folders
+- `/api/v1/photos/albums` — Get albums
+- `/p/api/v1/stream/p/t/{id}` — Stream photos/videos
 
 All requests are authenticated using the authx header mechanism.
 
@@ -85,6 +92,16 @@ private static final String API_KEY = "YOUR_API_KEY";
 private static final String API_SECRET = "YOUR_API_SECRET";
 ```
 
+## Tech Stack
+
+- **Language**: Java
+- **Min SDK**: 19 (Android 4.4 KitKat)
+- **Target SDK**: 29 (Android 10)
+- **TV UI**: Android Leanback library
+- **Image Loading**: Glide
+- **Video Playback**: ExoPlayer
+- **Networking**: OkHttp 3.12.x + Retrofit
+
 ## Acknowledgments
 
 - Authentication implementation based on [fnnas-api](https://github.com/FNOSP/fnnas-api) by FNOSP
@@ -94,7 +111,7 @@ private static final String API_SECRET = "YOUR_API_SECRET";
 
 ## License
 
-MIT License - See LICENSE file for details
+MIT License — See LICENSE file for details
 
 ## Contributing
 
@@ -103,5 +120,6 @@ Pull requests are welcome. For major changes, please open an issue first to disc
 ## Troubleshooting
 
 - **Connection Issues**: Ensure your TV and NAS are on the same network
-- **Authentication Failed**: Check your API token and NAS URL
+- **Authentication Failed**: Check your username and password
 - **Photos Not Loading**: Verify the photo stream URL is accessible from your TV
+- **FN Connect Not Working**: Only local network (LAN) login is supported; FN Connect cloud access is not yet available
