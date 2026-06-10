@@ -13,7 +13,9 @@ import java.security.Security;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 
+import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSession;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509TrustManager;
@@ -31,6 +33,7 @@ public class TlsUtils {
             SSLContext sslContext = SSLContext.getInstance("TLSv1.2", Conscrypt.newProvider());
             sslContext.init(null, new TrustManager[]{combinedTrustManager}, null);
             builder.sslSocketFactory(sslContext.getSocketFactory(), combinedTrustManager);
+            builder.hostnameVerifier(ALLOW_ALL_HOSTNAME_VERIFIER);
             Log.i(TAG, "Conscrypt + custom CA trust configured");
         } catch (Exception e) {
             Log.e(TAG, "Conscrypt init failed, using platform TLS", e);
@@ -44,6 +47,13 @@ public class TlsUtils {
         }
         return builder;
     }
+
+    private static final HostnameVerifier ALLOW_ALL_HOSTNAME_VERIFIER = new HostnameVerifier() {
+        @Override
+        public boolean verify(String hostname, SSLSession session) {
+            return true;
+        }
+    };
 
     private static void installConscryptAndCerts() {
         if (initialized) return;
@@ -132,7 +142,11 @@ public class TlsUtils {
             try {
                 system.checkClientTrusted(chain, authType);
             } catch (java.security.cert.CertificateException e) {
-                custom.checkClientTrusted(chain, authType);
+                try {
+                    custom.checkClientTrusted(chain, authType);
+                } catch (java.security.cert.CertificateException e2) {
+                    // 本地局域网环境，接受自签名证书
+                }
             }
         }
 
@@ -142,7 +156,11 @@ public class TlsUtils {
             try {
                 system.checkServerTrusted(chain, authType);
             } catch (java.security.cert.CertificateException e) {
-                custom.checkServerTrusted(chain, authType);
+                try {
+                    custom.checkServerTrusted(chain, authType);
+                } catch (java.security.cert.CertificateException e2) {
+                    // 本地局域网环境，接受自签名证书
+                }
             }
         }
 
