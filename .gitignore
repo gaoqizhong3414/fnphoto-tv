@@ -29,3 +29,6 @@ AGENTS.md
 
 # Test outputs
 /app/src/test/resources/test-output/
+.venv
+__pycache__/
+*.pyc
