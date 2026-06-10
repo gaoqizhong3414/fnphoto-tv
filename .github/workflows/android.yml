@@ -23,4 +23,4 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
     - name: Build with Gradle
-      run: ./gradlew build --init-script .github/ci-init.gradle
+      run: ./gradlew assembleDebug --init-script .github/ci-init.gradle
