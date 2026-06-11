@@ -20,6 +20,9 @@ import uuid as uuid_mod
 import ipaddress
 from datetime import datetime, timedelta, timezone
 
+import imageio
+import numpy as np
+
 from cryptography import x509
 from cryptography.x509.oid import NameOID
 from cryptography.hazmat.primitives import hashes, serialization
@@ -32,6 +35,9 @@ from PIL import Image, ImageDraw, ImageFont
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s: %(message)s')
 log = logging.getLogger('fnos-mock')
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+TEST_VIDEO_PATH = os.path.join(SCRIPT_DIR, "test_video.mp4")
 
 RSA_KEY = rsa.generate_private_key(
     public_exponent=65537, key_size=2048, backend=default_backend()
@@ -140,7 +146,7 @@ def build_fake_data():
         ts = _rng_ts()
         w = RNG.choice([1920, 2048, 2560, 3840, 4000])
         h = RNG.choice([1080, 1365, 1440, 2160, 2250])
-        typ = "image" if RNG.random() > 0.15 else "video"
+        typ = "photo" if RNG.random() > 0.15 else "video"
         geo = None
         if RNG.random() > 0.5:
             city = RNG.choice(list(CITY_COUNTRY.keys()))
@@ -227,7 +233,7 @@ def build_fake_data():
                 "Sunset Collection", "Random Moments",
             ]),
             "source": "local",
-            "photoCount": len([p for p in album_photos if p["category"] == "image"]),
+            "photoCount": len([p for p in album_photos if p["category"] == "photo"]),
             "videoCount": len([p for p in album_photos if p["category"] == "video"]),
             "posterUrl": cover["additional"]["thumbnail"]["mUrl"],
             "posterImgUrl": cover["additional"]["thumbnail"]["sUrl"],
@@ -529,7 +535,7 @@ async def handle_sys_info(request):
 
 
 async def handle_photo_stats(request):
-    img_count = len([p for p in PHOTOS if p["category"] == "image"])
+    img_count = len([p for p in PHOTOS if p["category"] == "photo"])
     vid_count = len([p for p in PHOTOS if p["category"] == "video"])
     return ok_v2({"id": 1, "photoCount": img_count, "videoCount": vid_count, "isAdmin": True, "nasUid": 1})
 
@@ -600,10 +606,40 @@ async def handle_stream_original(request):
                         headers={"Cache-Control": "max-age=3600"})
 
 
+def generate_test_video():
+    if os.path.exists(TEST_VIDEO_PATH):
+        return
+    w, h, duration, fps = 640, 480, 3, 15
+    frames = []
+    for i in range(duration * fps):
+        t = i / fps
+        r = int(128 + 127 * np.sin(2 * np.pi * 0.5 * t))
+        g = int(128 + 127 * np.sin(2 * np.pi * 0.3 * t + 2))
+        b = int(128 + 127 * np.sin(2 * np.pi * 0.2 * t + 4))
+        frame = np.zeros((h, w, 3), dtype=np.uint8)
+        frame[:, :, 0] = r
+        frame[:, :, 1] = g
+        frame[:, :, 2] = b
+        draw = ImageDraw.Draw(Image.fromarray(frame))
+        text = f"Test Video {i // fps + 1}s"
+        try:
+            font = ImageFont.truetype("arial.ttf", 36)
+        except Exception:
+            font = ImageFont.load_default()
+        bbox = draw.textbbox((0, 0), text, font=font)
+        tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
+        draw.text(((w - tw) // 2, (h - th) // 2), text, fill=(255, 255, 255), font=font)
+        frames.append(np.array(Image.fromarray(frame)))
+    imageio.mimsave(TEST_VIDEO_PATH, frames, fps=fps, codec="libx264",
+                     pixelformat="yuv420p", ffmpeg_params=["-profile:v", "baseline", "-level", "3.0"])
+    log.info(f"Generated test video: {TEST_VIDEO_PATH}")
+
+
 async def handle_stream_video(request):
     photo_id = request.match_info.get("id", "0")
-    data = get_placeholder(640, 360, f"Video {photo_id}", "video")
-    return web.Response(body=data, content_type="image/jpeg",
+    with open(TEST_VIDEO_PATH, "rb") as f:
+        data = f.read()
+    return web.Response(body=data, content_type="video/mp4",
                         headers={"Cache-Control": "max-age=3600"})
 
 
@@ -805,6 +841,7 @@ async def main():
     cert = os.path.join(script_dir, "test_cert.pem")
     key = os.path.join(script_dir, "test_key.pem")
     make_self_signed_cert(cert, key, local_ip)
+    generate_test_video()
 
     app = build_app()
 

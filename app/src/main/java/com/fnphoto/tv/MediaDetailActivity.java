@@ -372,47 +372,122 @@ public class MediaDetailActivity extends FragmentActivity {
 
         container.removeAllViews();
 
-        playerView = new PlayerView(this);
-        playerView.setLayoutParams(new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT));
-        container.addView(playerView);
-
         String videoId = item.getId();
         String videoUrl = baseUrl + "/p/api/v1/stream/v/" + videoId;
-
         Log.d(TAG, "Playing video: " + videoUrl);
 
-        player = new SimpleExoPlayer.Builder(this).build();
-        playerView.setPlayer(player);
+        if (!tryExoPlayer(videoUrl)) {
+            setupMediaPlayer(videoUrl);
+        }
+    }
 
-        AuthenticatedHttpDataSourceFactory dataSourceFactory =
-                new AuthenticatedHttpDataSourceFactory(this, "ExoPlayer");
+    private boolean tryExoPlayer(String videoUrl) {
+        try {
+            playerView = new PlayerView(this);
+            playerView.setLayoutParams(new FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT));
+            container.addView(playerView);
 
-        player.addListener(new Player.DefaultEventListener() {
-            @Override
-            public void onPlayerError(com.google.android.exoplayer2.ExoPlaybackException error) {
-                Log.e(TAG, "Player error: " + error.getMessage(), error);
-                Toast.makeText(MediaDetailActivity.this,
-                        "视频播放失败，请尝试在其他设备上播放",
-                        Toast.LENGTH_LONG).show();
-            }
+            player = new SimpleExoPlayer.Builder(this).build();
+            playerView.setPlayer(player);
 
-            @Override
-            public void onPlayerStateChanged(boolean playWhenReady, int playbackState) {
-                if (playbackState == Player.STATE_ENDED) {
-                    if (slideshowActive) {
-                        switchToNext();
+            AuthenticatedHttpDataSourceFactory dataSourceFactory =
+                    new AuthenticatedHttpDataSourceFactory(this, "ExoPlayer");
+
+            player.addListener(new Player.DefaultEventListener() {
+                @Override
+                public void onPlayerError(com.google.android.exoplayer2.ExoPlaybackException error) {
+                    Log.e(TAG, "ExoPlayer error, falling back to MediaPlayer", error);
+                    hideLoading();
+                    if (player != null) {
+                        player.release();
+                        player = null;
+                    }
+                    if (playerView != null) {
+                        container.removeView(playerView);
+                        playerView = null;
+                    }
+                    setupMediaPlayer(videoUrl);
+                }
+
+                @Override
+                public void onPlayerStateChanged(boolean playWhenReady, int playbackState) {
+                    if (playbackState == Player.STATE_ENDED) {
+                        if (slideshowActive) {
+                            switchToNext();
+                        }
                     }
                 }
-            }
-        });
+            });
 
-        android.net.Uri uri = android.net.Uri.parse(videoUrl);
-        ProgressiveMediaSource mediaSource = new ProgressiveMediaSource.Factory(dataSourceFactory)
-                .createMediaSource(uri);
-        player.prepare(mediaSource);
-        player.setPlayWhenReady(true);
+            android.net.Uri uri = android.net.Uri.parse(videoUrl);
+            ProgressiveMediaSource mediaSource = new ProgressiveMediaSource.Factory(dataSourceFactory)
+                    .createMediaSource(uri);
+            player.prepare(mediaSource);
+            player.setPlayWhenReady(true);
+            return true;
+        } catch (Exception e) {
+            Log.w(TAG, "ExoPlayer init failed, falling back to MediaPlayer", e);
+            if (player != null) {
+                player.release();
+                player = null;
+            }
+            if (playerView != null) {
+                container.removeView(playerView);
+                playerView = null;
+            }
+            return false;
+        }
+    }
+
+    private void setupMediaPlayer(String videoUrl) {
+        try {
+            android.view.SurfaceView sv = new android.view.SurfaceView(this);
+            sv.setLayoutParams(new FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT));
+            container.addView(sv);
+
+            final android.media.MediaPlayer mp = new android.media.MediaPlayer();
+            java.util.Map<String, String> headers = new java.util.HashMap<>();
+            headers.put("accesstoken", token != null ? token : "");
+            mp.setDataSource(this, android.net.Uri.parse(videoUrl), headers);
+
+            sv.getHolder().addCallback(new android.view.SurfaceHolder.Callback() {
+                @Override
+                public void surfaceCreated(android.view.SurfaceHolder holder) {
+                    mp.setDisplay(holder);
+                    mp.prepareAsync();
+                }
+                @Override
+                public void surfaceChanged(android.view.SurfaceHolder holder, int format, int w, int h) {}
+                @Override
+                public void surfaceDestroyed(android.view.SurfaceHolder holder) {}
+            });
+
+            mp.setOnPreparedListener(mp2 -> {
+                hideLoading();
+                mp2.start();
+            });
+            mp.setOnErrorListener((mp2, what, extra) -> {
+                Log.e(TAG, "MediaPlayer error: what=" + what + " extra=" + extra);
+                hideLoading();
+                Toast.makeText(MediaDetailActivity.this,
+                        "视频播放失败", Toast.LENGTH_LONG).show();
+                return true;
+            });
+            mp.setOnCompletionListener(mp2 -> {
+                if (slideshowActive) {
+                    switchToNext();
+                }
+            });
+        } catch (Exception e) {
+            Log.e(TAG, "MediaPlayer init failed", e);
+            hideLoading();
+            Toast.makeText(MediaDetailActivity.this,
+                    "视频播放失败", Toast.LENGTH_LONG).show();
+        }
     }
 
     private void applyZoom() {

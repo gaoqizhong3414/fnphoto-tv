@@ -14,6 +14,7 @@ import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 
 import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSession;
 import javax.net.ssl.TrustManager;
@@ -34,6 +35,7 @@ public class TlsUtils {
             sslContext.init(null, new TrustManager[]{combinedTrustManager}, null);
             builder.sslSocketFactory(sslContext.getSocketFactory(), combinedTrustManager);
             builder.hostnameVerifier(ALLOW_ALL_HOSTNAME_VERIFIER);
+            setDefaultHttpsSsl(sslContext);
             Log.i(TAG, "Conscrypt + custom CA trust configured");
         } catch (Exception e) {
             Log.e(TAG, "Conscrypt init failed, using platform TLS", e);
@@ -46,6 +48,23 @@ public class TlsUtils {
             }
         }
         return builder;
+    }
+
+    public static void setDefaultHttpsSsl(SSLContext sslContext) {
+        HttpsURLConnection.setDefaultSSLSocketFactory(sslContext.getSocketFactory());
+        HttpsURLConnection.setDefaultHostnameVerifier(ALLOW_ALL_HOSTNAME_VERIFIER);
+    }
+
+    public static void initGlobalTls() {
+        installConscryptAndCerts();
+        try {
+            SSLContext sslContext = SSLContext.getInstance("TLSv1.2", Conscrypt.newProvider());
+            sslContext.init(null, new TrustManager[]{combinedTrustManager}, null);
+            setDefaultHttpsSsl(sslContext);
+            Log.i(TAG, "Global TLS (HttpsURLConnection) configured for Glide");
+        } catch (Exception e) {
+            Log.e(TAG, "Global TLS init failed", e);
+        }
     }
 
     private static final HostnameVerifier ALLOW_ALL_HOSTNAME_VERIFIER = new HostnameVerifier() {
