@@ -89,16 +89,13 @@ public class VideoRotationHelper {
         }
         if (vw <= 0 || vh <= 0) return;
 
+        textureView.setOpaque(true);
+
         Matrix matrix = new Matrix();
 
         float cx = vw / 2f;
         float cy = vh / 2f;
         matrix.postRotate(rotation, cx, cy);
-
-        if (rotation == 90 || rotation == 270) {
-            float scale = Math.min((float) vw / vh, (float) vh / vw);
-            matrix.postScale(scale, scale, cx, cy);
-        }
 
         textureView.setTransform(matrix);
         Log.i(TAG, "Applied rotation " + rotation + " to video TextureView (" + vw + "x" + vh + ")");

@@ -3,6 +3,7 @@ package com.fnphoto.tv;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -1469,7 +1470,14 @@ public class MainFragment extends BrowseSupportFragment {
                 if (photo.additional != null && photo.additional.thumbnail != null) {
                     FnHttpApi.GalleryThumbnail thumbnail = photo.additional.thumbnail;
                     thumbUrl = thumbnail.mUrl != null ? baseUrl + thumbnail.mUrl : (thumbnail.sUrl != null ? baseUrl + thumbnail.sUrl : null);
-                    mediaUrl = thumbnail.originalUrl != null ? baseUrl + thumbnail.originalUrl :
+                    String origUrl = thumbnail.originalUrl;
+                    if (origUrl != null && (Build.VERSION.SDK_INT < Build.VERSION_CODES.P)) {
+                        String lower = origUrl.toLowerCase();
+                        if (lower.endsWith(".heic") || lower.endsWith(".heif")) {
+                            origUrl = null;
+                        }
+                    }
+                    mediaUrl = origUrl != null ? baseUrl + origUrl :
                             (thumbnail.mUrl != null ? baseUrl + thumbnail.mUrl : null);
                 }
 
