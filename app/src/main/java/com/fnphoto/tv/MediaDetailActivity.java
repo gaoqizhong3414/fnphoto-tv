@@ -261,10 +261,12 @@ public class MediaDetailActivity extends FragmentActivity {
                             @Override
                             public void onLoadFailed() {
                                 hideLoading();
-                                // 缩略图已展示则不弹错误（用户看到的仍是可接受的画质）
-                                if (!thumbDisplayed[0]) {
-                                    Toast.makeText(MediaDetailActivity.this, "图片加载失败", Toast.LENGTH_SHORT).show();
-                                }
+                                // 延迟检查：避免与缩略图异步回调的竞态条件
+                                new Handler(Looper.getMainLooper()).post(() -> {
+                                    if (!thumbDisplayed[0]) {
+                                        Toast.makeText(MediaDetailActivity.this, "图片加载失败", Toast.LENGTH_SHORT).show();
+                                    }
+                                });
                             }
                         });
             } else {

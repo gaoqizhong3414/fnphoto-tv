@@ -810,7 +810,15 @@ public class MainFragment extends BrowseSupportFragment {
                 
                 thumbUrl = thumbnail.mUrl != null ? baseUrl + thumbnail.mUrl : (thumbnail.sUrl != null ? baseUrl + thumbnail.sUrl : null);
                 
-                originalUrl = thumbnail.originalUrl != null ? baseUrl + thumbnail.originalUrl : (thumbnail.mUrl != null ? baseUrl + thumbnail.mUrl : null);
+                String origUrl = thumbnail.originalUrl;
+                if (isApiLevelBelowP() && isHeicExtension(origUrl)) {
+                    String streamUrl = getStreamUrl(photo);
+                    originalUrl = streamUrl != null ? streamUrl :
+                            (thumbnail.mUrl != null ? baseUrl + thumbnail.mUrl : null);
+                } else {
+                    originalUrl = origUrl != null ? baseUrl + origUrl :
+                            (thumbnail.mUrl != null ? baseUrl + thumbnail.mUrl : null);
+                }
             }
 
             MediaItem item = new MediaItem(
@@ -992,7 +1000,15 @@ public class MainFragment extends BrowseSupportFragment {
                 if (photo.additional != null && photo.additional.thumbnail != null) {
                 FnHttpApi.GalleryThumbnail thumbnail = photo.additional.thumbnail;
                 thumbUrl = thumbnail.mUrl != null ? baseUrl + thumbnail.mUrl : (thumbnail.sUrl != null ? baseUrl + thumbnail.sUrl : null);
-                originalUrl = thumbnail.originalUrl != null ? baseUrl + thumbnail.originalUrl : (thumbnail.mUrl != null ? baseUrl + thumbnail.mUrl : null);
+                String origUrl = thumbnail.originalUrl;
+                if (isApiLevelBelowP() && isHeicExtension(origUrl)) {
+                    String streamUrl = getStreamUrl(photo);
+                    originalUrl = streamUrl != null ? streamUrl :
+                            (thumbnail.mUrl != null ? baseUrl + thumbnail.mUrl : null);
+                } else {
+                    originalUrl = origUrl != null ? baseUrl + origUrl :
+                            (thumbnail.mUrl != null ? baseUrl + thumbnail.mUrl : null);
+                }
             }
 
             MediaItem item = new MediaItem(
@@ -1093,7 +1109,14 @@ public class MainFragment extends BrowseSupportFragment {
                 if (photo.additional != null && photo.additional.thumbnail != null) {
                     FnHttpApi.GalleryThumbnail thumbnail = photo.additional.thumbnail;
                     thumbUrl = thumbnail.mUrl != null ? baseUrl + thumbnail.mUrl : (thumbnail.sUrl != null ? baseUrl + thumbnail.sUrl : null);
-                    mediaUrl = thumbnail.originalUrl != null ? baseUrl + thumbnail.originalUrl : null;
+                    String origUrl = thumbnail.originalUrl;
+                    if (isApiLevelBelowP() && isHeicExtension(origUrl)) {
+                        String streamUrl = getStreamUrl(photo);
+                        mediaUrl = streamUrl != null ? streamUrl :
+                                (thumbnail.mUrl != null ? baseUrl + thumbnail.mUrl : null);
+                    } else {
+                        mediaUrl = origUrl != null ? baseUrl + origUrl : null;
+                    }
                 }
 
                 MediaItem item = new MediaItem(
@@ -1244,7 +1267,14 @@ public class MainFragment extends BrowseSupportFragment {
                 if (photo.additional != null && photo.additional.thumbnail != null) {
                     FnHttpApi.GalleryThumbnail thumbnail = photo.additional.thumbnail;
                     thumbUrl = thumbnail.mUrl != null ? baseUrl + thumbnail.mUrl : (thumbnail.sUrl != null ? baseUrl + thumbnail.sUrl : null);
-                    mediaUrl = thumbnail.originalUrl != null ? baseUrl + thumbnail.originalUrl : null;
+                    String origUrl = thumbnail.originalUrl;
+                    if (isApiLevelBelowP() && isHeicExtension(origUrl)) {
+                        String streamUrl = getStreamUrl(photo);
+                        mediaUrl = streamUrl != null ? streamUrl :
+                                (thumbnail.mUrl != null ? baseUrl + thumbnail.mUrl : null);
+                    } else {
+                        mediaUrl = origUrl != null ? baseUrl + origUrl : null;
+                    }
                 }
 
                 MediaItem item = new MediaItem(
@@ -1471,14 +1501,14 @@ public class MainFragment extends BrowseSupportFragment {
                     FnHttpApi.GalleryThumbnail thumbnail = photo.additional.thumbnail;
                     thumbUrl = thumbnail.mUrl != null ? baseUrl + thumbnail.mUrl : (thumbnail.sUrl != null ? baseUrl + thumbnail.sUrl : null);
                     String origUrl = thumbnail.originalUrl;
-                    if (origUrl != null && (Build.VERSION.SDK_INT < Build.VERSION_CODES.P)) {
-                        String lower = origUrl.toLowerCase();
-                        if (lower.endsWith(".heic") || lower.endsWith(".heif")) {
-                            origUrl = null;
-                        }
+                    if (isApiLevelBelowP() && isHeicExtension(origUrl)) {
+                        String streamUrl = getStreamUrl(photo);
+                        mediaUrl = streamUrl != null ? streamUrl :
+                                (thumbnail.mUrl != null ? baseUrl + thumbnail.mUrl : null);
+                    } else {
+                        mediaUrl = origUrl != null ? baseUrl + origUrl :
+                                (thumbnail.mUrl != null ? baseUrl + thumbnail.mUrl : null);
                     }
-                    mediaUrl = origUrl != null ? baseUrl + origUrl :
-                            (thumbnail.mUrl != null ? baseUrl + thumbnail.mUrl : null);
                 }
 
             MediaItem item = new MediaItem(
@@ -1527,6 +1557,21 @@ public class MainFragment extends BrowseSupportFragment {
         intent.putExtra("FOLDER_PATH", folderPath);
         intent.putExtra("FOLDER_NAME", folderItem.getTitle());
         startActivity(intent);
+    }
+
+    private String getStreamUrl(FnHttpApi.GalleryPhoto photo) {
+        if (photo.photoUUID != null && !photo.photoUUID.isEmpty()) {
+            return baseUrl + "/p/api/v1/stream/p/t/" + photo.id + "/o/" + photo.photoUUID;
+        }
+        return null;
+    }
+
+    private boolean isApiLevelBelowP() {
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.P;
+    }
+
+    private boolean isHeicExtension(String url) {
+        return url != null && (url.toLowerCase().endsWith(".heic") || url.toLowerCase().endsWith(".heif"));
     }
 
     @Override
