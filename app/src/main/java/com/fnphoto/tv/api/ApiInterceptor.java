@@ -47,9 +47,12 @@ public class ApiInterceptor implements Interceptor {
                     Log.i(TAG, "Retrying request with new token: " + path);
                     return chain.proceed(newRequest);
                 }
+                Log.e(TAG, "Re-login succeeded but token is empty, cannot retry");
             } else {
                 Log.e(TAG, "Re-login failed, cannot recover from 401");
             }
+
+            return response.newBuilder().code(401).message("Unauthorized after re-login attempt").build();
         }
 
         return response;

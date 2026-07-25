@@ -220,14 +220,13 @@ public class MediaDetailActivity extends FragmentActivity {
                         new CachedImageLoader.ImageLoadCallback() {
                             @Override
                             public void onBitmapLoaded(Bitmap bitmap) {
+                                hideLoading();
                                 imageView.setImageBitmap(bitmap);
-                                // 缩略图设完后，重新把加载动画置于最上层
-                                if (loadingIndicator != null) {
-                                    loadingIndicator.bringToFront();
-                                }
                             }
                             @Override
-                            public void onLoadFailed() {}
+                            public void onLoadFailed() {
+                                hideLoading();
+                            }
                         });
             }
 
@@ -245,6 +244,9 @@ public class MediaDetailActivity extends FragmentActivity {
                                 Toast.makeText(MediaDetailActivity.this, "图片加载失败", Toast.LENGTH_SHORT).show();
                             }
                         });
+            } else {
+                // 没有原图 URL 时确保隐藏加载动画
+                hideLoading();
             }
         }
 

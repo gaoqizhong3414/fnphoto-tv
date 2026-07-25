@@ -1466,11 +1466,12 @@ public class MainFragment extends BrowseSupportFragment {
             String thumbUrl = null;
             String mediaUrl = null;
 
-            if (photo.additional != null && photo.additional.thumbnail != null) {
-                FnHttpApi.GalleryThumbnail thumbnail = photo.additional.thumbnail;
-                thumbUrl = thumbnail.mUrl != null ? baseUrl + thumbnail.mUrl : (thumbnail.sUrl != null ? baseUrl + thumbnail.sUrl : null);
-                mediaUrl = thumbnail.originalUrl != null ? baseUrl + thumbnail.originalUrl : null;
-            }
+                if (photo.additional != null && photo.additional.thumbnail != null) {
+                    FnHttpApi.GalleryThumbnail thumbnail = photo.additional.thumbnail;
+                    thumbUrl = thumbnail.mUrl != null ? baseUrl + thumbnail.mUrl : (thumbnail.sUrl != null ? baseUrl + thumbnail.sUrl : null);
+                    mediaUrl = thumbnail.originalUrl != null ? baseUrl + thumbnail.originalUrl :
+                            (thumbnail.mUrl != null ? baseUrl + thumbnail.mUrl : null);
+                }
 
             MediaItem item = new MediaItem(
                 String.valueOf(photo.id),
