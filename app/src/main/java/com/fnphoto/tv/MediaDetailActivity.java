@@ -14,6 +14,7 @@ import android.util.Log;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
 import android.view.animation.DecelerateInterpolator;
@@ -34,6 +35,7 @@ import com.fnphoto.tv.api.HttpClientProvider;
 import com.fnphoto.tv.cache.CachedImageLoader;
 import com.fnphoto.tv.cache.ImageCacheManager;
 import com.fnphoto.tv.player.AuthenticatedHttpDataSourceFactory;
+import com.fnphoto.tv.player.VideoRotationHelper;
 import com.google.android.exoplayer2.Player;
 import com.google.android.exoplayer2.SimpleExoPlayer;
 import com.google.android.exoplayer2.source.ProgressiveMediaSource;
@@ -383,11 +385,20 @@ public class MediaDetailActivity extends FragmentActivity {
 
     private boolean tryExoPlayer(String videoUrl) {
         try {
-            playerView = new PlayerView(this);
-            playerView.setLayoutParams(new FrameLayout.LayoutParams(
-                    FrameLayout.LayoutParams.MATCH_PARENT,
-                    FrameLayout.LayoutParams.MATCH_PARENT));
-            container.addView(playerView);
+            final int[] videoRotation = {0};
+            try {
+                android.net.Uri videoUri = android.net.Uri.parse(videoUrl);
+                String path = videoUri.getPath();
+                String authx = com.fnphoto.tv.api.FnAuthUtils.generateAuthX(path, "GET", null);
+                videoRotation[0] = VideoRotationHelper.getVideoRotation(
+                        videoUri, token, authx);
+            } catch (Exception e) {
+                Log.w(TAG, "Rotation detection failed, assuming 0", e);
+            }
+
+            android.view.View playbackRoot = getLayoutInflater().inflate(
+                    R.layout.activity_playback, container, true);
+            playerView = playbackRoot.findViewById(R.id.player_view);
 
             player = new SimpleExoPlayer.Builder(this).build();
             playerView.setPlayer(player);
@@ -397,6 +408,20 @@ public class MediaDetailActivity extends FragmentActivity {
 
             player.addListener(new Player.DefaultEventListener() {
                 @Override
+                public void onPlayerStateChanged(boolean playWhenReady, int playbackState) {
+                    if (playbackState == Player.STATE_READY && videoRotation[0] != 0) {
+                        ViewGroup root = (ViewGroup) playerView.getParent();
+                        VideoRotationHelper.applyRotationToPlayerView(
+                                root, videoRotation[0]);
+                    }
+                    if (playbackState == Player.STATE_ENDED) {
+                        if (slideshowActive) {
+                            switchToNext();
+                        }
+                    }
+                }
+
+                @Override
                 public void onPlayerError(com.google.android.exoplayer2.ExoPlaybackException error) {
                     Log.e(TAG, "ExoPlayer error, falling back to MediaPlayer", error);
                     hideLoading();
@@ -405,21 +430,25 @@ public class MediaDetailActivity extends FragmentActivity {
                         player = null;
                     }
                     if (playerView != null) {
-                        container.removeView(playerView);
                         playerView = null;
                     }
+                    container.removeAllViews();
                     setupMediaPlayer(videoUrl);
                 }
-
-                @Override
-                public void onPlayerStateChanged(boolean playWhenReady, int playbackState) {
-                    if (playbackState == Player.STATE_ENDED) {
-                        if (slideshowActive) {
-                            switchToNext();
-                        }
-                    }
-                }
             });
+
+            if (videoRotation[0] != 0) {
+                final int rot = videoRotation[0];
+                player.addVideoListener(new com.google.android.exoplayer2.video.VideoListener() {
+                    @Override
+                    public void onVideoSizeChanged(int width, int height,
+                            int unappliedRotationDegrees, float pixelWidthHeightRatio) {
+                        ViewGroup root = (ViewGroup) playerView.getParent();
+                        VideoRotationHelper.applyRotationToPlayerView(
+                                root, rot);
+                    }
+                });
+            }
 
             android.net.Uri uri = android.net.Uri.parse(videoUrl);
             ProgressiveMediaSource mediaSource = new ProgressiveMediaSource.Factory(dataSourceFactory)
@@ -433,10 +462,8 @@ public class MediaDetailActivity extends FragmentActivity {
                 player.release();
                 player = null;
             }
-            if (playerView != null) {
-                container.removeView(playerView);
-                playerView = null;
-            }
+            playerView = null;
+            container.removeAllViews();
             return false;
         }
     }
