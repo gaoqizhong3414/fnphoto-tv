@@ -192,13 +192,16 @@ public class MediaDetailActivity extends FragmentActivity {
         }
 
         String mediaUrl = item.getMediaUrl();
+        final String thumbUrl = item.getThumbnailUrl();
+
+        // 缩略图是否已成功展示（用于原图 HEIC 解码失败时不弹错误提示）
+        final boolean[] thumbDisplayed = {false};
 
         // 检查原图是否已有缓存
         ImageCacheManager cacheManager = ImageCacheManager.getInstance(this);
         boolean originalCached = mediaUrl != null && !mediaUrl.isEmpty() && cacheManager.isCacheValid(mediaUrl);
 
         if (originalCached) {
-            // 原图已缓存：直接加载，不要缩略图占位
             CachedImageLoader.loadImage(this, mediaUrl, token, screenWidth, screenHeight,
                     new CachedImageLoader.ImageLoadCallback() {
                         @Override
@@ -208,25 +211,42 @@ public class MediaDetailActivity extends FragmentActivity {
                         }
                         @Override
                         public void onLoadFailed() {
-                            hideLoading();
-                            Toast.makeText(MediaDetailActivity.this, "图片加载失败", Toast.LENGTH_SHORT).show();
+                            if (thumbUrl != null && !thumbUrl.isEmpty()) {
+                                CachedImageLoader.loadImage(MediaDetailActivity.this, thumbUrl, token,
+                                        screenWidth, screenHeight,
+                                        new CachedImageLoader.ImageLoadCallback() {
+                                            @Override
+                                            public void onBitmapLoaded(Bitmap bitmap) {
+                                                hideLoading();
+                                                imageView.setImageBitmap(bitmap);
+                                            }
+                                            @Override
+                                            public void onLoadFailed() {
+                                                hideLoading();
+                                                Toast.makeText(MediaDetailActivity.this, "图片加载失败", Toast.LENGTH_SHORT).show();
+                                            }
+                                        });
+                            } else {
+                                hideLoading();
+                                Toast.makeText(MediaDetailActivity.this, "图片加载失败", Toast.LENGTH_SHORT).show();
+                            }
                         }
                     });
         } else {
-            // 原图未缓存：先显示缩略图占位，加载动画保持在最上层
-            String thumbUrl = item.getThumbnailUrl();
+            // 先显示缩略图占位
             if (thumbUrl != null && !thumbUrl.isEmpty()) {
                 CachedImageLoader.loadImage(this, thumbUrl, token, screenWidth, screenHeight,
                         new CachedImageLoader.ImageLoadCallback() {
                             @Override
                             public void onBitmapLoaded(Bitmap bitmap) {
-                                hideLoading();
                                 imageView.setImageBitmap(bitmap);
+                                thumbDisplayed[0] = true;
+                                if (loadingIndicator != null) {
+                                    loadingIndicator.bringToFront();
+                                }
                             }
                             @Override
-                            public void onLoadFailed() {
-                                hideLoading();
-                            }
+                            public void onLoadFailed() {}
                         });
             }
 
@@ -241,12 +261,17 @@ public class MediaDetailActivity extends FragmentActivity {
                             @Override
                             public void onLoadFailed() {
                                 hideLoading();
-                                Toast.makeText(MediaDetailActivity.this, "图片加载失败", Toast.LENGTH_SHORT).show();
+                                // 缩略图已展示则不弹错误（用户看到的仍是可接受的画质）
+                                if (!thumbDisplayed[0]) {
+                                    Toast.makeText(MediaDetailActivity.this, "图片加载失败", Toast.LENGTH_SHORT).show();
+                                }
                             }
                         });
             } else {
-                // 没有原图 URL 时确保隐藏加载动画
                 hideLoading();
+                if (!thumbDisplayed[0]) {
+                    Toast.makeText(MediaDetailActivity.this, "图片加载失败", Toast.LENGTH_SHORT).show();
+                }
             }
         }
 
