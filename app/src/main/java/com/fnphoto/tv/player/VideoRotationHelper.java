@@ -3,8 +3,6 @@ package com.fnphoto.tv.player;
 import android.media.MediaMetadataRetriever;
 import android.net.Uri;
 import android.util.Log;
-import android.view.View;
-import android.view.ViewGroup;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -37,23 +35,5 @@ public class VideoRotationHelper {
             }
         }
         return 0;
-    }
-
-    public static void applyRotationToPlayerView(final ViewGroup playerViewRoot, final int rotation) {
-        if (rotation == 0 || playerViewRoot == null) return;
-
-        playerViewRoot.post(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    playerViewRoot.setPivotX(playerViewRoot.getWidth() / 2f);
-                    playerViewRoot.setPivotY(playerViewRoot.getHeight() / 2f);
-                    playerViewRoot.setRotation(rotation);
-                    Log.i(TAG, "Applied rotation " + rotation + " to PlayerView root");
-                } catch (Exception e) {
-                    Log.w(TAG, "Failed to apply rotation to root view", e);
-                }
-            }
-        });
     }
 }

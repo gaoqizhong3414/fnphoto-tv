@@ -5,7 +5,9 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.graphics.ColorMatrix;
 import android.graphics.Matrix;
+import android.graphics.Paint;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.os.Handler;
@@ -36,6 +38,7 @@ import com.fnphoto.tv.cache.CachedImageLoader;
 import com.fnphoto.tv.cache.ImageCacheManager;
 import com.fnphoto.tv.player.AuthenticatedHttpDataSourceFactory;
 import com.fnphoto.tv.player.VideoRotationHelper;
+import com.google.android.exoplayer2.ExoPlaybackException;
 import com.google.android.exoplayer2.Player;
 import com.google.android.exoplayer2.SimpleExoPlayer;
 import com.google.android.exoplayer2.source.ProgressiveMediaSource;
@@ -84,6 +87,9 @@ public class MediaDetailActivity extends FragmentActivity {
     private FnHttpApi api;
     private String baseUrl;
     private String token;
+    private int manualRotationDegrees = 0;
+    private String currentVideoUrl;
+    private android.view.TextureView textureView;private Matrix rotationMatrix = new Matrix();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -404,27 +410,20 @@ public class MediaDetailActivity extends FragmentActivity {
         container.removeAllViews();
 
         String videoId = item.getId();
-        String videoUrl = baseUrl + "/p/api/v1/stream/v/" + videoId;
-        Log.d(TAG, "Playing video: " + videoUrl);
+        currentVideoUrl = baseUrl + "/p/api/v1/stream/v/" + videoId;
+        Log.d(TAG, "Playing video: " + currentVideoUrl);
 
-        if (!tryExoPlayer(videoUrl)) {
-            setupMediaPlayer(videoUrl);
+        if (!tryExoPlayer(currentVideoUrl, -1)) {
+            setupMediaPlayer(currentVideoUrl);
         }
     }
 
     private boolean tryExoPlayer(String videoUrl) {
-        try {
-            final int[] videoRotation = {0};
-            try {
-                android.net.Uri videoUri = android.net.Uri.parse(videoUrl);
-                String path = videoUri.getPath();
-                String authx = com.fnphoto.tv.api.FnAuthUtils.generateAuthX(path, "GET", null);
-                videoRotation[0] = VideoRotationHelper.getVideoRotation(
-                        videoUri, token, authx);
-            } catch (Exception e) {
-                Log.w(TAG, "Rotation detection failed, assuming 0", e);
-            }
+        return tryExoPlayer(videoUrl, -1);
+    }
 
+    private boolean tryExoPlayer(String videoUrl, long seekPositionMs) {
+        try {
             android.view.View playbackRoot = getLayoutInflater().inflate(
                     R.layout.activity_playback, container, true);
             playerView = playbackRoot.findViewById(R.id.player_view);
@@ -438,11 +437,6 @@ public class MediaDetailActivity extends FragmentActivity {
             player.addListener(new Player.DefaultEventListener() {
                 @Override
                 public void onPlayerStateChanged(boolean playWhenReady, int playbackState) {
-                    if (playbackState == Player.STATE_READY && videoRotation[0] != 0) {
-                        ViewGroup root = (ViewGroup) playerView.getParent();
-                        VideoRotationHelper.applyRotationToPlayerView(
-                                root, videoRotation[0]);
-                    }
                     if (playbackState == Player.STATE_ENDED) {
                         if (slideshowActive) {
                             switchToNext();
@@ -451,7 +445,7 @@ public class MediaDetailActivity extends FragmentActivity {
                 }
 
                 @Override
-                public void onPlayerError(com.google.android.exoplayer2.ExoPlaybackException error) {
+                public void onPlayerError(ExoPlaybackException error) {
                     Log.e(TAG, "ExoPlayer error, falling back to MediaPlayer", error);
                     hideLoading();
                     if (player != null) {
@@ -466,24 +460,32 @@ public class MediaDetailActivity extends FragmentActivity {
                 }
             });
 
-            if (videoRotation[0] != 0) {
-                final int rot = videoRotation[0];
-                player.addVideoListener(new com.google.android.exoplayer2.video.VideoListener() {
-                    @Override
-                    public void onVideoSizeChanged(int width, int height,
-                            int unappliedRotationDegrees, float pixelWidthHeightRatio) {
-                        ViewGroup root = (ViewGroup) playerView.getParent();
-                        VideoRotationHelper.applyRotationToPlayerView(
-                                root, rot);
-                    }
-                });
-            }
-
             android.net.Uri uri = android.net.Uri.parse(videoUrl);
             ProgressiveMediaSource mediaSource = new ProgressiveMediaSource.Factory(dataSourceFactory)
                     .createMediaSource(uri);
             player.prepare(mediaSource);
+            if (seekPositionMs >= 0) {
+                final long seekPos = seekPositionMs;
+                player.addListener(new Player.DefaultEventListener() {
+                    @Override
+                    public void onPlayerStateChanged(boolean playWhenReady, int playbackState) {
+                        if (playbackState == Player.STATE_READY) {
+                            player.seekTo(seekPos);
+                            player.removeListener(this);
+                        }
+                    }
+                });
+            }
             player.setPlayWhenReady(true);
+
+            playerView.post(new Runnable() {
+                @Override
+                public void run() {
+                    setupTextureView();
+                    applyTextureViewRotation();
+                }
+            });
+
             return true;
         } catch (Exception e) {
             Log.w(TAG, "ExoPlayer init failed, falling back to MediaPlayer", e);
@@ -495,6 +497,68 @@ public class MediaDetailActivity extends FragmentActivity {
             container.removeAllViews();
             return false;
         }
+    }
+
+    private void setupTextureView() {
+        if (playerView == null) return;
+        textureView = findTextureView(playerView);
+        if (textureView == null) return;
+        ColorMatrix cm = new ColorMatrix();
+        cm.setSaturation(1.5f);
+        Paint paint = new Paint();
+        paint.setColorFilter(new android.graphics.ColorMatrixColorFilter(cm));
+        textureView.setLayerType(android.view.View.LAYER_TYPE_HARDWARE, paint);
+    }
+
+    private android.view.TextureView findTextureView(android.view.View root) {
+        if (root instanceof android.view.TextureView) return (android.view.TextureView) root;
+        if (root instanceof android.view.ViewGroup) {
+            android.view.ViewGroup g = (android.view.ViewGroup) root;
+            for (int i = 0; i < g.getChildCount(); i++) {
+                android.view.TextureView found = findTextureView(g.getChildAt(i));
+                if (found != null) return found;
+            }
+        }
+        return null;
+    }
+
+    private void applyTextureViewRotation() {
+        if (textureView == null) return;
+        int degrees = manualRotationDegrees;
+        int w = textureView.getWidth();
+        int h = textureView.getHeight();
+        if (w <= 0 || h <= 0) return;
+
+        rotationMatrix.reset();
+        if (degrees == 0) {
+            textureView.setTransform(null);
+            return;
+        }
+
+        float px = w / 2f;
+        float py = h / 2f;
+        rotationMatrix.postRotate(degrees, px, py);
+
+        if (degrees == 90 || degrees == 270) {
+            float scale = Math.min((float) w / h, (float) h / w);
+            rotationMatrix.postScale(scale, scale, px, py);
+        }
+
+        textureView.setTransform(rotationMatrix);
+        textureView.setAlpha(0.99f);
+        textureView.setAlpha(1.0f);
+    }
+
+    private void adjustRotation(int delta) {
+        manualRotationDegrees = (manualRotationDegrees + delta + 360) % 360;
+        applyTextureViewRotation();
+        String msg;
+        if (manualRotationDegrees == 0) {
+            msg = "方向: 原始";
+        } else {
+            msg = "方向: " + manualRotationDegrees + "°";
+        }
+        Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
     }
 
     private void setupMediaPlayer(String videoUrl) {
@@ -892,13 +956,17 @@ public class MediaDetailActivity extends FragmentActivity {
                 switchToNext();
                 return true;
             case KeyEvent.KEYCODE_DPAD_UP:
-                if (!isVideoPlaying && currentScale < MAX_SCALE) {
+                if (isVideoPlaying) {
+                    adjustRotation(90);
+                } else if (currentScale < MAX_SCALE) {
                     currentScale = Math.min(currentScale + ZOOM_STEP, MAX_SCALE);
                     applyZoom();
                 }
                 return true;
             case KeyEvent.KEYCODE_DPAD_DOWN:
-                if (!isVideoPlaying && currentScale > MIN_SCALE) {
+                if (isVideoPlaying) {
+                    adjustRotation(-90);
+                } else if (currentScale > MIN_SCALE) {
                     currentScale = Math.max(currentScale - ZOOM_STEP, MIN_SCALE);
                     applyZoom();
                 }
